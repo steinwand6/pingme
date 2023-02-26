@@ -2,44 +2,48 @@ use std::{fmt::Display, str::FromStr};
 
 #[derive(Debug)]
 struct ChunkType {
-    code: [u8; 4],
+    codes: [u8; 4],
 }
 
 impl TryFrom<[u8; 4]> for ChunkType {
     type Error = ();
     fn try_from(value: [u8; 4]) -> Result<Self, Self::Error> {
-        Ok(Self { code: value })
+        Ok(Self { codes: value })
     }
 }
 
 impl FromStr for ChunkType {
     type Err = ();
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() != 4 {
-            Err(())
-        } else {
+        if s.chars().all(|c| c.is_alphabetic()) {
             let bytes = s.as_bytes();
-            let code: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
-            Ok(Self { code })
+            let codes: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
+            let chunktype = Self { codes };
+            return Ok(chunktype);
+        } else {
+            return Err(());
         }
     }
 }
 
 impl Display for ChunkType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let codes_str: Vec<char> = self.codes.iter().map(|&byte| char::from(byte)).collect();
+
         write!(
             f,
             "{}{}{}{}",
-            self.code[0], self.code[1], self.code[2], self.code[3]
+            codes_str[0], codes_str[1], codes_str[2], codes_str[3]
         )
     }
 }
 
 impl PartialEq for ChunkType {
     fn eq(&self, other: &ChunkType) -> bool {
-        self.code
+        self.codes
             .iter()
-            .zip(other.code.iter())
+            .zip(other.codes.iter())
             .all(|(c1, c2)| c1 == c2)
     }
 }
@@ -48,22 +52,22 @@ impl Eq for ChunkType {}
 
 impl ChunkType {
     fn bytes(&self) -> [u8; 4] {
-        todo!()
+        self.codes
     }
     fn is_valid(&self) -> bool {
-        todo!()
+        self.codes.iter().all(|byte| byte.is_ascii_alphabetic()) && self.is_reserved_bit_valid()
     }
     fn is_critical(&self) -> bool {
-        todo!()
+        self.codes[0].is_ascii_uppercase()
     }
     fn is_public(&self) -> bool {
-        todo!()
+        self.codes[1].is_ascii_uppercase()
     }
     fn is_reserved_bit_valid(&self) -> bool {
-        todo!()
+        self.codes[2].is_ascii_uppercase()
     }
     fn is_safe_to_copy(&self) -> bool {
-        todo!()
+        self.codes[3].is_ascii_lowercase()
     }
 }
 

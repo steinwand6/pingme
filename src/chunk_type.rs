@@ -20,9 +20,9 @@ impl FromStr for ChunkType {
             let bytes = s.as_bytes();
             let codes: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
             let chunktype = Self { codes };
-            return Ok(chunktype);
+            Ok(chunktype)
         } else {
-            return Err(());
+            Err(())
         }
     }
 }

@@ -1,7 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 #[derive(Debug)]
-struct ChunkType {
+pub struct ChunkType {
     codes: [u8; 4],
 }
 

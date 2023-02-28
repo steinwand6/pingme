@@ -51,22 +51,22 @@ impl PartialEq for ChunkType {
 impl Eq for ChunkType {}
 
 impl ChunkType {
-    fn bytes(&self) -> [u8; 4] {
+    pub fn bytes(&self) -> [u8; 4] {
         self.codes
     }
-    fn is_valid(&self) -> bool {
+    pub fn is_valid(&self) -> bool {
         self.codes.iter().all(|byte| byte.is_ascii_alphabetic()) && self.is_reserved_bit_valid()
     }
-    fn is_critical(&self) -> bool {
+    pub fn is_critical(&self) -> bool {
         self.codes[0].is_ascii_uppercase()
     }
-    fn is_public(&self) -> bool {
+    pub fn is_public(&self) -> bool {
         self.codes[1].is_ascii_uppercase()
     }
-    fn is_reserved_bit_valid(&self) -> bool {
+    pub fn is_reserved_bit_valid(&self) -> bool {
         self.codes[2].is_ascii_uppercase()
     }
-    fn is_safe_to_copy(&self) -> bool {
+    pub fn is_safe_to_copy(&self) -> bool {
         self.codes[3].is_ascii_lowercase()
     }
 }

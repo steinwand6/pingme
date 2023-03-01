@@ -2,10 +2,10 @@ use std::str::Bytes;
 
 /*
 mod args;
-mod chunk;
 mod commands;
 mod png;
 */
+mod chunk;
 mod chunk_type;
 
 pub type Error = Box<dyn std::error::Error>;

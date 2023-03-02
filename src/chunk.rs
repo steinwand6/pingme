@@ -1,8 +1,8 @@
+use std::fmt::Display;
 use std::io::{BufReader, Read};
 
 use crate::chunk_type::ChunkType;
-use crate::Error;
-use crate::Result;
+use crate::{Error, Result};
 
 #[derive(Debug)]
 pub struct Chunk {
@@ -12,6 +12,23 @@ pub struct Chunk {
     crc: u32,
 }
 
+#[derive(Debug)]
+enum ChunkError {
+    CRCError,
+    ChunkTypeError,
+}
+
+impl Display for ChunkError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChunkError::CRCError => write!(f, "CRC is wrong value."),
+            ChunkError::ChunkTypeError => write!(f, "Chunk type is wrong value."),
+        }
+    }
+}
+
+impl std::error::Error for ChunkError {}
+
 impl TryFrom<&[u8]> for Chunk {
     type Error = Error;
     fn try_from(value: &[u8]) -> Result<Self> {
@@ -20,15 +37,24 @@ impl TryFrom<&[u8]> for Chunk {
         reader.read_exact(&mut buf)?;
         let length = u32::from_be_bytes(buf);
         reader.read_exact(&mut buf)?;
-        let chunk_type = ChunkType::try_from(buf).unwrap(); // todd refactering!
+        let chunk_type = match ChunkType::try_from(buf) {
+            Ok(chunk_type) => chunk_type,
+            Err(_) => return Err(Box::new(ChunkError::ChunkTypeError)),
+        };
 
         let mut data = vec![0; length as usize];
         reader.read_exact(&mut data)?;
 
         // CSC algorithm CRC-32/ISO-HDLC
         // width=32 poly=0x04c11db7 init=0xffffffff refin=true refout=true xorout=0xffffffff check=0xcbf43926 residue=0xdebb20e3 name="CRC-32/ISO-HDLC"
-        let crc = crc::Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
-        let crc = crc.checksum(&value[4..(4 + 4 + length) as usize]);
+        reader.read_exact(&mut buf)?;
+        let crc = u32::from_be_bytes(buf);
+        let crc_checker = crc::Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
+        let crc_value = crc_checker.checksum(&value[4..(4 + 4 + length) as usize]);
+
+        if crc != crc_value {
+            return Err(Box::new(ChunkError::CRCError));
+        }
 
         let res = Self {
             length,
@@ -42,26 +68,49 @@ impl TryFrom<&[u8]> for Chunk {
 }
 
 impl Chunk {
-    fn new(chunk_type: ChunkType, data: Vec<u8>) -> Chunk {
-        todo!()
+    pub fn new(chunk_type: ChunkType, data: Vec<u8>) -> Chunk {
+        let length = data.len() as u32;
+        let crc = crc::Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
+        let bytes = [&chunk_type.bytes(), data.as_slice()].concat();
+        let crc = crc.checksum(&bytes);
+        Self {
+            length,
+            chunk_type,
+            data,
+            crc,
+        }
     }
-    fn length(&self) -> u32 {
-        todo!()
+    pub fn length(&self) -> u32 {
+        self.length
     }
-    fn chunk_type(&self) -> &ChunkType {
-        todo!()
+    pub fn chunk_type(&self) -> &ChunkType {
+        &self.chunk_type
     }
-    fn data(&self) -> &[u8] {
-        todo!()
+    pub fn data(&self) -> &[u8] {
+        &self.data
     }
-    fn crc(&self) -> u32 {
-        todo!()
+    pub fn crc(&self) -> u32 {
+        self.crc
     }
-    fn data_as_string(&self) -> Result<String> {
-        todo!()
+    pub fn data_as_string(&self) -> Result<String> {
+        let mut res = String::with_capacity(self.length as usize);
+        for &c in self.data.iter() {
+            res.push(char::try_from(c)?);
+        }
+        Ok(res)
     }
-    fn as_bytes(&self) -> Vec<u8> {
-        todo!()
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let length = self.length.to_be_bytes();
+        let chunk_type = self.chunk_type.bytes();
+        let data = self.data.as_slice();
+        let crc = self.crc.to_be_bytes();
+        length
+            .iter()
+            .chain(chunk_type.iter())
+            .chain(data.iter())
+            .chain(crc.iter())
+            .copied()
+            .collect()
     }
 }
 

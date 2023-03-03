@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{self, Display};
 use std::io::{BufReader, Read};
 
 use crate::chunk_type::ChunkType;
@@ -111,6 +111,16 @@ impl Chunk {
             .chain(crc.iter())
             .copied()
             .collect()
+    }
+}
+
+impl Display for Chunk {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Ok(data) = self.data_as_string() {
+            write!(f, "{}", data)
+        } else {
+            Err(fmt::Error)
+        }
     }
 }
 

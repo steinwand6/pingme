@@ -1,46 +1,53 @@
+use crate::Result;
 use std::{fmt::Display, str::FromStr};
+use thiserror::Error;
 
 #[derive(Debug)]
 pub struct ChunkType {
     codes: [u8; 4],
 }
 
+#[derive(Debug, Error)]
+enum ChunkTypeError {
+    #[error("using Reserved Bit")]
+    ReservedBit,
+    #[error("")]
+    InvalidByte,
+}
+
 impl TryFrom<[u8; 4]> for ChunkType {
-    type Error = ();
-    fn try_from(value: [u8; 4]) -> Result<Self, Self::Error> {
+    type Error = crate::Error;
+    fn try_from(value: [u8; 4]) -> Result<Self> {
         let res = Self { codes: value };
-        if res.is_valid() {
-            Ok(res)
+        if !res.is_reserved_bit_valid() {
+            Err(ChunkTypeError::ReservedBit.into())
+        } else if !res.is_only_alphabetic() {
+            Err(ChunkTypeError::InvalidByte.into())
         } else {
-            Err(())
+            Ok(res)
         }
     }
 }
 
 impl FromStr for ChunkType {
-    type Err = ();
+    type Err = crate::Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self> {
         if s.chars().all(|c| c.is_alphabetic()) {
             let bytes = s.as_bytes();
             let codes: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
             let chunktype = Self { codes };
             Ok(chunktype)
         } else {
-            Err(())
+            Err(ChunkTypeError::InvalidByte.into())
         }
     }
 }
 
 impl Display for ChunkType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let codes_str: Vec<char> = self.codes.iter().map(|&byte| char::from(byte)).collect();
-
-        write!(
-            f,
-            "{}{}{}{}",
-            codes_str[0], codes_str[1], codes_str[2], codes_str[3]
-        )
+        let codes_str = String::from_utf8(self.codes.to_vec()).unwrap();
+        write!(f, "{}", codes_str)
     }
 }
 
@@ -60,7 +67,7 @@ impl ChunkType {
         self.codes
     }
     pub fn is_valid(&self) -> bool {
-        self.codes.iter().all(|byte| byte.is_ascii_alphabetic()) && self.is_reserved_bit_valid()
+        self.is_only_alphabetic() && self.is_reserved_bit_valid()
     }
     pub fn is_critical(&self) -> bool {
         self.codes[0].is_ascii_uppercase()
@@ -73,6 +80,9 @@ impl ChunkType {
     }
     pub fn is_safe_to_copy(&self) -> bool {
         self.codes[3].is_ascii_lowercase()
+    }
+    fn is_only_alphabetic(&self) -> bool {
+        self.codes.iter().all(|byte| byte.is_ascii_alphabetic())
     }
 }
 

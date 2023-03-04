@@ -1,8 +1,8 @@
 use std::fmt::{self, Display};
 use std::io::{BufReader, Read};
+use thiserror::Error;
 
-use crate::chunk_type::ChunkType;
-use crate::{Error, Result};
+use crate::chunk_type::{ChunkType, ChunkTypeError};
 
 #[derive(Debug)]
 pub struct Chunk {
@@ -12,26 +12,19 @@ pub struct Chunk {
     crc: u32,
 }
 
-#[derive(Debug)]
-enum ChunkError {
-    CRCError,
-    ChunkTypeError,
+#[derive(Debug, Error)]
+pub enum ChunkError {
+    #[error("invalid CRC value")]
+    InvalidCRC,
+    #[error("invalid Chunk type")]
+    InvalidChunkType(#[from] ChunkTypeError),
+    #[error("error while generating from invalid bytes")]
+    InvalidBytes(#[from] std::io::Error),
 }
-
-impl Display for ChunkError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ChunkError::CRCError => write!(f, "CRC is wrong value."),
-            ChunkError::ChunkTypeError => write!(f, "Chunk type is wrong value."),
-        }
-    }
-}
-
-impl std::error::Error for ChunkError {}
 
 impl TryFrom<&[u8]> for Chunk {
-    type Error = Error;
-    fn try_from(value: &[u8]) -> Result<Self> {
+    type Error = ChunkError;
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         let mut reader = BufReader::new(value);
         let mut buf = [0; 4];
         reader.read_exact(&mut buf)?;
@@ -39,7 +32,7 @@ impl TryFrom<&[u8]> for Chunk {
         reader.read_exact(&mut buf)?;
         let chunk_type = match ChunkType::try_from(buf) {
             Ok(chunk_type) => chunk_type,
-            Err(_) => return Err(Box::new(ChunkError::ChunkTypeError)),
+            Err(e) => return Err(ChunkError::InvalidChunkType(e)),
         };
 
         let mut data = vec![0; length as usize];
@@ -53,7 +46,7 @@ impl TryFrom<&[u8]> for Chunk {
         let crc_value = crc_checker.checksum(&value[4..(4 + 4 + length) as usize]);
 
         if crc != crc_value {
-            return Err(Box::new(ChunkError::CRCError));
+            return Err(ChunkError::InvalidCRC);
         }
 
         let res = Self {
@@ -92,7 +85,7 @@ impl Chunk {
     pub fn crc(&self) -> u32 {
         self.crc
     }
-    pub fn data_as_string(&self) -> Result<String> {
+    pub fn data_as_string(&self) -> crate::Result<String> {
         let mut res = String::with_capacity(self.length as usize);
         for &c in self.data.iter() {
             res.push(char::try_from(c)?);

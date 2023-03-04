@@ -1,4 +1,3 @@
-use crate::Result;
 use std::{fmt::Display, str::FromStr};
 use thiserror::Error;
 
@@ -8,21 +7,21 @@ pub struct ChunkType {
 }
 
 #[derive(Debug, Error)]
-enum ChunkTypeError {
+pub enum ChunkTypeError {
     #[error("using Reserved Bit")]
     ReservedBit,
-    #[error("")]
+    #[error("include invalid byte")]
     InvalidByte,
 }
 
 impl TryFrom<[u8; 4]> for ChunkType {
-    type Error = crate::Error;
-    fn try_from(value: [u8; 4]) -> Result<Self> {
+    type Error = ChunkTypeError;
+    fn try_from(value: [u8; 4]) -> Result<Self, Self::Error> {
         let res = Self { codes: value };
         if !res.is_reserved_bit_valid() {
-            Err(ChunkTypeError::ReservedBit.into())
+            Err(ChunkTypeError::ReservedBit)
         } else if !res.is_only_alphabetic() {
-            Err(ChunkTypeError::InvalidByte.into())
+            Err(ChunkTypeError::InvalidByte)
         } else {
             Ok(res)
         }
@@ -30,16 +29,15 @@ impl TryFrom<[u8; 4]> for ChunkType {
 }
 
 impl FromStr for ChunkType {
-    type Err = crate::Error;
-
-    fn from_str(s: &str) -> Result<Self> {
+    type Err = ChunkTypeError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.chars().all(|c| c.is_alphabetic()) {
             let bytes = s.as_bytes();
             let codes: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
             let chunktype = Self { codes };
             Ok(chunktype)
         } else {
-            Err(ChunkTypeError::InvalidByte.into())
+            Err(ChunkTypeError::InvalidByte)
         }
     }
 }

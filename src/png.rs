@@ -2,29 +2,23 @@ use std::{
     fmt::Display,
     io::{BufReader, Read},
 };
+use thiserror::Error;
 
-use crate::{chunk::Chunk, Error, Result};
+use crate::{chunk::Chunk, chunk_type::ChunkTypeError, Result};
 
 pub struct Png {
     header: [u8; 8],
     chunks: Vec<Chunk>,
 }
 
-#[derive(Debug)]
-enum PngError {
-    InvalidHeaderError,
-    InvalidChunkType,
-}
-
-impl std::error::Error for PngError {}
-
-impl Display for PngError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidHeaderError => write!(f, "Invalid Header."),
-            Self::InvalidChunkType => write!(f, "Invalid Chunk Type."),
-        }
-    }
+#[derive(Debug, Error)]
+pub enum PngError {
+    #[error("invalid header")]
+    InvalidHeader,
+    #[error("invalid chunk type")]
+    InvalidChunkType(#[from] ChunkTypeError),
+    #[error("chunk is not found")]
+    ChunkNotFound,
 }
 
 impl Png {
@@ -45,7 +39,7 @@ impl Png {
                 return Ok(self.chunks.remove(i));
             }
         }
-        Err(Box::new(PngError::InvalidChunkType))
+        Err(Box::new(PngError::ChunkNotFound))
     }
     pub fn header(&self) -> &[u8; 8] {
         &self.header
@@ -72,13 +66,13 @@ impl Png {
 }
 
 impl TryFrom<&[u8]> for Png {
-    type Error = Error;
-    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
+    type Error = crate::Error;
+    fn try_from(value: &[u8]) -> Result<Self> {
         let mut reader = BufReader::new(value);
         let mut header = [0; 8];
         reader.read_exact(&mut header)?;
         if header != Png::STANDARD_HEADER {
-            return Err(Box::new(PngError::InvalidHeaderError));
+            return Err(Box::new(PngError::InvalidHeader));
         }
         let mut chunks = vec![];
         let mut length = [0; 4];
@@ -130,7 +124,7 @@ mod tests {
 
         let chunk_type = match ChunkType::from_str(chunk_type) {
             Ok(chunk_type) => chunk_type,
-            Err(_) => return Err(Box::new(PngError::InvalidChunkType)),
+            Err(e) => return Err(Box::new(PngError::InvalidChunkType(e))),
         };
         let data: Vec<u8> = data.bytes().collect();
 

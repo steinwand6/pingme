@@ -60,6 +60,13 @@ impl PartialEq for ChunkType {
 
 impl Eq for ChunkType {}
 
+impl Clone for ChunkType {
+    fn clone(&self) -> Self {
+        let codes = self.codes;
+        ChunkType { codes }
+    }
+}
+
 impl ChunkType {
     pub fn bytes(&self) -> [u8; 4] {
         self.codes

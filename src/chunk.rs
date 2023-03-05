@@ -55,7 +55,6 @@ impl TryFrom<&[u8]> for Chunk {
             data,
             crc,
         };
-        println!("{:?}", res);
         Ok(res)
     }
 }
